@@ -54,6 +54,13 @@ public class MonarchSession extends TransactionSession {
     private final int price;
 
 
+    /**
+     * Constructor for MonarchSession.
+     * @param serverPlayer ServerPlayer
+     * @param action MonarchAction
+     * @param tax int
+     * @param goods Goods
+     */
     public MonarchSession(ServerPlayer serverPlayer, MonarchAction action,
                           int tax, Goods goods) {
         super(makeSessionKey(MonarchSession.class, serverPlayer.getId(), ""));
@@ -66,6 +73,13 @@ public class MonarchSession extends TransactionSession {
         this.price = 0;
     }
 
+    /**
+     * Constructor for MonarchSession.
+     * @param serverPlayer ServerPlayer
+     * @param action MonarchAction
+     * @param mercenaries List<AbstractUnit>
+     * @param price int
+     */
     public MonarchSession(ServerPlayer serverPlayer, MonarchAction action,
                           List<AbstractUnit> mercenaries, int price) {
         super(makeSessionKey(MonarchSession.class, serverPlayer.getId(), ""));
@@ -78,6 +92,11 @@ public class MonarchSession extends TransactionSession {
         this.price = price;
     }
 
+    /**
+     * Method complete.
+     * @param result boolean
+     * @param cs ChangeSet
+     */
     public void complete(boolean result, ChangeSet cs) {
         switch (action) {
         case RAISE_TAX_ACT: case RAISE_TAX_WAR:
@@ -92,6 +111,10 @@ public class MonarchSession extends TransactionSession {
         super.complete(cs);
     }
 
+    /**
+     * Method complete.
+     * @param cs ChangeSet
+     */
     @Override
     public void complete(ChangeSet cs) {
         switch (action) {
@@ -107,22 +130,42 @@ public class MonarchSession extends TransactionSession {
         super.complete(cs);
     }
 
+    /**
+     * Method getAction.
+     * @return MonarchAction
+     */
     public MonarchAction getAction() {
         return this.action;
     }
 
+    /**
+     * Method getTax.
+     * @return int
+     */
     public int getTax() {
         return this.tax;
     }
 
+    /**
+     * Method getGoods.
+     * @return Goods
+     */
     public Goods getGoods() {
         return this.goods;
     }
 
+    /**
+     * Method getMercenaries.
+     * @return List<AbstractUnit>
+     */
     public List<AbstractUnit> getMercenaries() {
         return this.mercenaries;
     }
 
+    /**
+     * Method getPrice.
+     * @return int
+     */
     public int getPrice() {
         return this.price;
     }

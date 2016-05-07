@@ -38,17 +38,31 @@ public class LootSession extends TransactionSession {
     private final List<Goods> capture;
 
 
+    /**
+     * Constructor for LootSession.
+     * @param winner Unit
+     * @param loser Unit
+     * @param capture List<Goods>
+     */
     public LootSession(Unit winner, Unit loser, List<Goods> capture) {
         super(makeSessionKey(LootSession.class, winner, loser));
         this.capture = capture;
     }
 
 
+    /**
+     * Method complete.
+     * @param cs ChangeSet
+     */
     @Override
     public void complete(ChangeSet cs) {
         super.complete(cs);
     }
 
+    /**
+     * Method getCapture.
+     * @return List<Goods>
+     */
     public List<Goods> getCapture() {
         return capture;
     }

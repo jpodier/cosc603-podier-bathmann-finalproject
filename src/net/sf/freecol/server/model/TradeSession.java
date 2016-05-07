@@ -65,41 +65,74 @@ public class TradeSession extends TransactionSession {
         canGift = unit.hasGoodsCargo();
     }
 
+    /**
+     * Method complete.
+     * @param the changeset to complete
+     */
     @Override
     public void complete(ChangeSet cs) {
         super.complete(cs);
     }
 
+    /**
+     * Method getMovesLeft.
+     * @return number of moves left
+     */
     public int getMovesLeft() {
         return movesLeft;
     }
 
+    /**
+     * Method getActionTaken.
+     * @return true if the action was taken, otherwise false
+     */
     public boolean getActionTaken() {
         return actionTaken;
     }
 
+    /**
+     * Method getBuy.
+     * @return true if can buy, otherwise false
+     */
     public boolean getBuy() {
         return canBuy;
     }
 
+    /**
+     * Method getSell.
+     * @return true if can sell, otherwise false
+     */
     public boolean getSell() {
         return canSell;
     }
 
+    /**
+     * Method getGift.
+     * @return true if can gift, otherwise false
+     */
     public boolean getGift() {
         return canGift;
     }
 
+    /**
+     * Sets the object as bought and cannot buy again 
+     */
     public void setBuy() {
         actionTaken = true;
         canBuy = false;
     }
 
+    /**
+     * Sets the object as sold and cannot sell again 
+     */
     public void setSell() {
         actionTaken = true;
         canSell = false;
     }
 
+    /**
+     * Sets the object as gifted and cannot gift again
+     */
     public void setGift() {
         actionTaken = true;
         canGift = false;

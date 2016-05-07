@@ -48,6 +48,11 @@ public class DiplomacySession extends TransactionSession {
     private final Unit otherUnit;
 
 
+    /**
+     * Constructor for DiplomacySession.
+     * @param unit Unit
+     * @param settlement Settlement
+     */
     public DiplomacySession(Unit unit, Settlement settlement) {
         super(makeSessionKey(DiplomacySession.class, unit, settlement));
         this.agreement = null;
@@ -56,6 +61,11 @@ public class DiplomacySession extends TransactionSession {
         this.otherUnit = null;
     }
 
+    /**
+     * Constructor for DiplomacySession.
+     * @param unit Unit
+     * @param otherUnit Unit
+     */
     public DiplomacySession(Unit unit, Unit otherUnit) {
         super(makeSessionKey(DiplomacySession.class, unit, otherUnit));
         this.agreement = null;
@@ -64,6 +74,10 @@ public class DiplomacySession extends TransactionSession {
         this.otherUnit = otherUnit;
     }
 
+    /**
+     * Method complete.
+     * @param cs ChangeSet
+     */
     @Override
     public void complete(ChangeSet cs) {
         unit.setMovesLeft(0);
@@ -71,22 +85,42 @@ public class DiplomacySession extends TransactionSession {
         super.complete(cs);
     }
 
+    /**
+     * Method getAgreement.
+     * @return DiplomaticTrade
+     */
     public DiplomaticTrade getAgreement() {
         return agreement;
     }
 
+    /**
+     * Method setAgreement.
+     * @param agreement DiplomaticTrade
+     */
     public void setAgreement(DiplomaticTrade agreement) {
         this.agreement = agreement;
     }
     
+    /**
+     * Method getUnit.
+     * @return Unit
+     */
     public Unit getUnit() {
         return unit;
     }
 
+    /**
+     * Method getSettlement.
+     * @return Settlement
+     */
     public Settlement getSettlement() {
         return settlement;
     }
 
+    /**
+     * Method getOtherUnit.
+     * @return Unit
+     */
     public Unit getOtherUnit() {
         return otherUnit;
     }
