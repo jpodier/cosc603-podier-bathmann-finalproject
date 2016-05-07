@@ -336,16 +336,20 @@ public class ServerPlayer extends Player implements ServerModelObject {
                 reply = this.connection.ask(request);
                 if (reply == null) break;
             } catch (IOException e) {
+            	String tagName = request.getTagName();
+            	tagName = tagName.replace("\n", "").replace("\r", "");
                 logger.log(Level.WARNING, "Could not send \""
-                    + request.getTagName() + "\"-message.", e);
+                    + tagName + "\"-message.", e);
                 break;
             }
 
             try {
                 request = this.connection.handle(reply);
             } catch (FreeColException fce) {
+            	String tagName = reply.getTagName();
+            	tagName = tagName.replace("\n", "").replace("\r", "");
                 logger.log(Level.WARNING, "Exception processing reply \""
-                    + reply.getTagName() + "\"-message.", fce);
+                    + tagName + "\"-message.", fce);
                 break;
             }
         }
@@ -378,8 +382,13 @@ public class ServerPlayer extends Player implements ServerModelObject {
         setCurrentFather(ff);
         clearOfferedFathers();
         if (ff != null) {
-            logger.finest(getId() + " is recruiting " + ff.getId()
-                + " in " + getGame().getTurn());
+        	String id = ff.getId();
+        	id = id.replace("\n", "").replace("\r", "");
+        	
+        	String turn = getGame().getTurn().toString();
+        	turn = turn.replace("\n", "").replace("\r", "");
+            logger.finest(getId() + " is recruiting " + id
+                + " in " + turn);
         }
     }
 
@@ -453,8 +462,13 @@ public class ServerPlayer extends Player implements ServerModelObject {
             }
         }
         if (changed) {
-            logger.finest("randomizeGame(" + getId() + ") initial prices: "
-                + sb.toString().substring(2));
+        	String id = getId();
+        	id = id.replace("\n", "").replace("\r", "");
+        	
+        	String prices = sb.toString().substring(2);
+        	prices = prices.replace("\n", "").replace("\r", "");
+            logger.finest("randomizeGame(" + id + ") initial prices: "
+                + prices);
         }
     }
 
