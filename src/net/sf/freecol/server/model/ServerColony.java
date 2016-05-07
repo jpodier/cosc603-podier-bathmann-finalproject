@@ -171,23 +171,7 @@ public class ServerColony extends Colony implements ServerModelObject {
             ProductionInfo info = getProductionInfo(queue);
             if (info == null) continue;
             if (info.getConsumption().isEmpty()) {
-                BuildableType build = queue.getCurrentlyBuilding();
-                if (build != null) {
-                    AbstractGoods needed = new AbstractGoods();
-                    int complete = getTurnsToComplete(build, needed);
-                    // Warn if about to fail, or if no useful progress
-                    // towards completion is possible.
-                    if (complete == -2 || complete == -1) {
-                        cs.addMessage(See.only(owner),
-                            new ModelMessage(MessageType.MISSING_GOODS,
-                                             "model.colony.buildableNeedsGoods",
-                                             this, build)
-                                .addName("%colony%", getName())
-                                .addNamed("%buildable%", build)
-                                .addAmount("%amount%", needed.getAmount())
-                                .addNamed("%goodsType%", needed.getType()));
-                    }
-                }
+                buildConsumptionEmpty(cs, owner, queue);
             } else {
                 // Ready to build something.  FIXME: OO!
                 BuildableType buildable = csNextBuildable(queue, cs);
@@ -215,7 +199,101 @@ public class ServerColony extends Colony implements ServerModelObject {
             }
         }
 
-        // Apply the accumulated production changes.
+        applyProductionChanges(random, lb, cs, spec, owner, newUnitBorn);
+
+        // Now that the goods have been updated it is safe to remove the
+        // built item from its build queue.
+        tileDirty = removeFromBuildQueue(random, cs, tileDirty, built);
+
+        // Export goods for custom house
+        exportGoods(lb, cs, owner, container);
+
+        // Throwaway goods
+        throwawayGoods(cs, spec, owner, newUnitBorn, container);
+
+        checkFreeBuildings(spec);
+        checkBuildQueueIntegrity(true);
+
+        handleEmptyQueue(cs, spec, owner, queues);
+
+        // Update SoL.
+        updateSoL();
+        createSOLMessage(cs, spec, owner);
+        
+        updateProductionBonus();
+        checkCompletedTraining(cs);
+
+        // Try to update minimally.
+        updateGameBoard(cs, owner, tile, tileDirty);
+        lb.add(", ");
+    }
+
+	/**
+	 * Complete the training on a new turn
+	 * 
+	 * @param cs
+	 */
+	private void checkCompletedTraining(ChangeSet cs) {
+		// We have to wait for the production bonus to stabilize
+        // before checking for completion of training.  This is a rare
+        // case so it is not worth reordering the work location calls
+        // to csNewTurn.
+        for (WorkLocation workLocation : getCurrentWorkLocations()) {
+            if (workLocation.canTeach()) {
+                ServerBuilding building = (ServerBuilding)workLocation;
+                for (Unit teacher : building.getUnitList()) {
+                    building.csCheckTeach(teacher, cs);
+                }
+            }
+        }
+	}
+
+	/**
+	 * Build on a new turn
+	 * 
+	 * Precondition: consumption is empty
+	 * 
+	 * @param cs
+	 * @param owner
+	 * @param queue
+	 */
+	private void buildConsumptionEmpty(ChangeSet cs, final ServerPlayer owner,
+			BuildQueue<?> queue) {
+		BuildableType build = queue.getCurrentlyBuilding();
+		if (build != null) {
+		    AbstractGoods needed = new AbstractGoods();
+		    int complete = getTurnsToComplete(build, needed);
+		    // Warn if about to fail, or if no useful progress
+		    // towards completion is possible.
+		    if (complete == -2 || complete == -1) {
+		        cs.addMessage(See.only(owner),
+		            new ModelMessage(MessageType.MISSING_GOODS,
+		                             "model.colony.buildableNeedsGoods",
+		                             this, build)
+		                .addName("%colony%", getName())
+		                .addNamed("%buildable%", build)
+		                .addAmount("%amount%", needed.getAmount())
+		                .addNamed("%goodsType%", needed.getType()));
+		    }
+		}
+	}
+
+	/**
+	 * Apply changes to production on a new turn
+	 * 
+	 * @param random
+	 * @param lb
+	 * @param cs
+	 * @param spec
+	 * @param owner
+	 * @param newUnitBorn
+	 * 
+	 * @return true if turn is over, false otherwise
+	 */
+	private boolean applyProductionChanges(Random random, LogBuilder lb,
+			ChangeSet cs, final Specification spec, final ServerPlayer owner,
+			boolean newUnitBorn) {
+		// Apply the accumulated production changes.
         // Beware that if you try to build something requiring hammers
         // and tools, as soon as one is updated in the colony the
         // current production cache is invalidated, and the
@@ -235,54 +313,68 @@ public class ServerColony extends Colony implements ServerModelObject {
             // Handle the food situation
             boolean turnOver = handleFood(random, lb, cs, spec, owner, newUnitBorn, goodsType,
 					net, stored);
-            if(turnOver) return;
+            if(turnOver) return true;
         }
         invalidateCache();
+        
+        return false;
+	}
 
-        // Now that the goods have been updated it is safe to remove the
-        // built item from its build queue.
-        if (!built.isEmpty()) {
-            for (BuildQueue<? extends BuildableType> queue : built) {
-                switch (queue.getCompletionAction()) {
-                case SHUFFLE:
-                    if (queue.size() > 1) {
-                        randomShuffle(logger, "Build queue",
-                                      queue.getValues(), random);
-                    }
-                    break;
-                case REMOVE_EXCEPT_LAST:
-                    if (queue.size() == 1
-                        && queue.getCurrentlyBuilding() instanceof UnitType) {
-                        // Repeat last unit
-                        break;
-                    }
-                    // Fall through
-                case REMOVE:
-                default:
-                    queue.remove(0);
-                    break;
-                }
-                csNextBuildable(queue, cs);
-            }
-            tileDirty = true;
+	/**
+	 * Update the game board on a new turn
+	 * 
+	 * @param cs
+	 * @param owner
+	 * @param tile
+	 * @param tileDirty
+	 */
+	private void updateGameBoard(ChangeSet cs, final ServerPlayer owner,
+			final Tile tile, boolean tileDirty) {
+		// Try to update minimally.
+		if (tileDirty) {
+            cs.add(See.perhaps(), tile);
+        } else {
+            cs.add(See.only(owner), this);
         }
+	}
 
-        // Export goods for custom house
-        exportGoods(lb, cs, owner, container);
+	/**
+	 * Display a message to the user if Sons of Liberty change on a new turn
+	 * 
+	 * @param cs
+	 * @param spec
+	 * @param owner
+	 */
+	private void createSOLMessage(ChangeSet cs, final Specification spec,
+			final ServerPlayer owner) {
+		if (sonsOfLiberty / 10 != oldSonsOfLiberty / 10) {
+            cs.addMessage(See.only(owner),
+                new ModelMessage(MessageType.SONS_OF_LIBERTY,
+                                 ((sonsOfLiberty > oldSonsOfLiberty)
+                                     ? "model.colony.soLIncrease"
+                                     : "model.colony.soLDecrease"),
+                                 this, spec.getGoodsType("model.goods.bells"))
+                    .addAmount("%oldSoL%", oldSonsOfLiberty)
+                    .addAmount("%newSoL%", sonsOfLiberty)
+                    .addName("%colony%", getName()));
 
-        // Throwaway goods
-        throwawayGoods(cs, spec, owner, newUnitBorn, container);
-
-        // Check for free buildings
-        for (BuildingType buildingType : spec.getBuildingTypeList()) {
-            if (isAutomaticBuild(buildingType)) {
-                buildBuilding(new ServerBuilding(getGame(), this,
-                                                 buildingType));//-til
+            ModelMessage govMgtMessage = checkForGovMgtChangeMessage();
+            if (govMgtMessage != null) {
+                cs.addMessage(See.only(owner), govMgtMessage);
             }
         }
-        checkBuildQueueIntegrity(true);
+	}
 
-        // If a build queue is empty, check that we are not producing
+	/** Handle an empty queue on a new turn
+	 * 
+	 * @param cs
+	 * @param spec
+	 * @param owner
+	 * @param queues
+	 */
+	private void handleEmptyQueue(ChangeSet cs, final Specification spec,
+			final ServerPlayer owner, BuildQueue<?>[] queues) {
+		// If a build queue is empty, check that we are not producing
         // any goods types useful for BuildableTypes, except if that
         // type is the input to some other form of production.  (Note:
         // isBuildingMaterial is also true for goods used to produce
@@ -308,49 +400,65 @@ public class ServerColony extends Colony implements ServerModelObject {
                 }
             }
         }
-
-        // Update SoL.
-        updateSoL();
-        if (sonsOfLiberty / 10 != oldSonsOfLiberty / 10) {
-            cs.addMessage(See.only(owner),
-                new ModelMessage(MessageType.SONS_OF_LIBERTY,
-                                 ((sonsOfLiberty > oldSonsOfLiberty)
-                                     ? "model.colony.soLIncrease"
-                                     : "model.colony.soLDecrease"),
-                                 this, spec.getGoodsType("model.goods.bells"))
-                    .addAmount("%oldSoL%", oldSonsOfLiberty)
-                    .addAmount("%newSoL%", sonsOfLiberty)
-                    .addName("%colony%", getName()));
-
-            ModelMessage govMgtMessage = checkForGovMgtChangeMessage();
-            if (govMgtMessage != null) {
-                cs.addMessage(See.only(owner), govMgtMessage);
-            }
-        }
-        updateProductionBonus();
-        // We have to wait for the production bonus to stabilize
-        // before checking for completion of training.  This is a rare
-        // case so it is not worth reordering the work location calls
-        // to csNewTurn.
-        for (WorkLocation workLocation : getCurrentWorkLocations()) {
-            if (workLocation.canTeach()) {
-                ServerBuilding building = (ServerBuilding)workLocation;
-                for (Unit teacher : building.getUnitList()) {
-                    building.csCheckTeach(teacher, cs);
-                }
-            }
-        }
-
-        // Try to update minimally.
-        if (tileDirty) {
-            cs.add(See.perhaps(), tile);
-        } else {
-            cs.add(See.only(owner), this);
-        }
-        lb.add(", ");
-    }
+	}
 
 	/**
+	 * Remove items from the build queue once they are built on a new turn
+	 * 
+	 * @param random
+	 * @param cs
+	 * @param tileDirty
+	 * @param built
+	 * @return
+	 */
+	private boolean removeFromBuildQueue(Random random, ChangeSet cs,
+			boolean tileDirty, List<BuildQueue<? extends BuildableType>> built) {
+		if (!built.isEmpty()) {
+            for (BuildQueue<? extends BuildableType> queue : built) {
+                switch (queue.getCompletionAction()) {
+                case SHUFFLE:
+                    if (queue.size() > 1) {
+                        randomShuffle(logger, "Build queue",
+                                      queue.getValues(), random);
+                    }
+                    break;
+                case REMOVE_EXCEPT_LAST:
+                    if (queue.size() == 1
+                        && queue.getCurrentlyBuilding() instanceof UnitType) {
+                        // Repeat last unit
+                        break;
+                    }
+                    // Fall through
+                case REMOVE:
+                default:
+                    queue.remove(0);
+                    break;
+                }
+                csNextBuildable(queue, cs);
+            }
+            tileDirty = true;
+        }
+		return tileDirty;
+	}
+
+	/**
+	 * Check for free buildings on a new turn
+	 * 
+	 * @param spec
+	 */
+	private void checkFreeBuildings(final Specification spec) {
+		// Check for free buildings
+        for (BuildingType buildingType : spec.getBuildingTypeList()) {
+            if (isAutomaticBuild(buildingType)) {
+                buildBuilding(new ServerBuilding(getGame(), this,
+                                                 buildingType));//-til
+            }
+        }
+	}
+
+	/**
+	 * Throwaway goods on a new turn if goods can no longer be held
+	 * 
 	 * @param cs
 	 * @param spec
 	 * @param owner
@@ -430,6 +538,8 @@ public class ServerColony extends Colony implements ServerModelObject {
 	}
 
 	/**
+	 * Export the goods on a new turn
+	 * 
 	 * @param lb
 	 * @param cs
 	 * @param owner
