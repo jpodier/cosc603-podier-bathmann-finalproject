@@ -66,7 +66,7 @@ import net.sf.freecol.server.model.ServerPlayer;
  */
 public class ServerColony extends Colony implements ServerModelObject {
 
-    private static final Logger logger = Logger.getLogger(ServerColony.class.getName());
+    public static final Logger logger = Logger.getLogger(ServerColony.class.getName());
 
 
     /**
@@ -998,25 +998,7 @@ public class ServerColony extends Colony implements ServerModelObject {
      * @param cs A <code>ChangeSet</code> to update.
      */
     public void csAddConvert(Unit brave, ChangeSet cs) {
-        if (brave == null) return;
-        ServerPlayer newOwner = (ServerPlayer)getOwner();
-        ServerPlayer oldOwner = (ServerPlayer)brave.getOwner();
-        if (oldOwner.csChangeOwner(brave, newOwner, ChangeType.CONVERSION, 
-                                   getTile(), cs)) { //-vis(other)
-            brave.changeRole(getSpecification().getDefaultRole(), 0);
-            brave.setMovesLeft(0);
-            brave.setState(Unit.UnitState.ACTIVE);
-            cs.addDisappear(newOwner, tile, brave);
-            cs.add(See.only(newOwner), getTile());
-            StringTemplate nation = oldOwner.getNationLabel();
-            cs.addMessage(See.only(newOwner),
-                new ModelMessage(MessageType.UNIT_ADDED,
-                                "model.colony.newConvert", brave)
-                    .addStringTemplate("%nation%", nation)
-                    .addName("%colony%", getName()));
-            newOwner.invalidateCanSeeTiles();//+vis(other)
-            logger.fine("Convert at " + getName() + " for " + getName());
-        }
+        cs.csAddConvert(brave, tile, this);
     }
 
     /**

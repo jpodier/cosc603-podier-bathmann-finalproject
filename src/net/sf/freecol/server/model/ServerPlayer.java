@@ -1024,7 +1024,7 @@ public class ServerPlayer extends Player implements ServerModelObject {
      * @param avoid An optional <code>Settlement</code> to consider last
      *     when making claims.
      */
-    private static void reassignTiles(Collection<Tile> tiles,
+    public static void reassignTiles(Collection<Tile> tiles,
                                       Player prefer,
                                       Settlement avoid) {
         HashMap<Settlement, Integer> votes = new HashMap<>();
@@ -2542,8 +2542,8 @@ outer:  for (Effect effect : effects) {
                     && colony != null
                     && isEuropean() && defenderPlayer.isEuropean();
                 if (ok) {
-                    csCaptureColony(attackerUnit, (ServerColony)colony,
-                                    random, cs);
+                    cs.csCaptureColony(attackerUnit, (ServerColony)colony,
+                                    random);
                     attackerTileDirty = defenderTileDirty = false;
                     moveAttacker = true;
                     defenderTension += Tension.TENSION_ADD_MAJOR;
@@ -2964,109 +2964,6 @@ outer:  for (Effect effect : effects) {
         Role role = defender.getAutomaticRole();
         csLoseAutoEquip(attacker, defender, cs);
         csCaptureEquipment(attacker, defender, role, cs);
-    }
-
-    /**
-     * Captures a colony.
-     *
-     * @param attacker The attacking <code>Unit</code>.
-     * @param colony The <code>ServerColony</code> to capture.
-     * @param random A pseudo-random number source.
-     * @param cs The <code>ChangeSet</code> to update.
-     */
-    private void csCaptureColony(Unit attacker, ServerColony colony,
-                                 Random random, ChangeSet cs) {
-        Game game = attacker.getGame();
-        ServerPlayer attackerPlayer = (ServerPlayer) attacker.getOwner();
-        StringTemplate attackerNation = attacker.getApparentOwnerName();
-        ServerPlayer colonyPlayer = (ServerPlayer) colony.getOwner();
-        StringTemplate colonyNation = colonyPlayer.getNationLabel();
-        Tile tile = colony.getTile();
-        List<Unit> units = new ArrayList<>();
-        units.addAll(colony.getUnitList());
-        units.addAll(tile.getUnitList());
-        int plunder = colony.getPlunder(attacker, random);
-
-        // Handle history and messages before colony handover
-        cs.addHistory(attackerPlayer,
-            new HistoryEvent(game.getTurn(),
-                HistoryEvent.HistoryEventType.CONQUER_COLONY, attackerPlayer)
-                .addStringTemplate("%nation%", colonyNation)
-                .addName("%colony%", colony.getName()));
-        cs.addHistory(colonyPlayer,
-            new HistoryEvent(game.getTurn(),
-                HistoryEvent.HistoryEventType.COLONY_CONQUERED, attackerPlayer)
-                      .addStringTemplate("%nation%", attackerNation)
-                      .addName("%colony%", colony.getName()));
-        cs.addMessage(See.only(attackerPlayer),
-            new ModelMessage(ModelMessage.MessageType.COMBAT_RESULT,
-                             "combat.colonyCaptured.enemy", colony)
-                .addName("%colony%", colony.getName())
-                .addStringTemplate("%unit%", attacker.getLabel())
-                .addStringTemplate("%enemyNation%", colonyNation)
-                .addAmount("%amount%", plunder));
-        cs.addMessage(See.only(colonyPlayer),
-            new ModelMessage(ModelMessage.MessageType.COMBAT_RESULT,
-                            "combat.colonyCaptured.ours", tile)
-                .addName("%colony%", colony.getName())
-                .addStringTemplate("%enemyUnit%", attacker.getLabel())
-                .addStringTemplate("%enemyNation%", attackerNation)
-                .addAmount("%amount%", plunder));
-        colonyPlayer.csLoseLocation(colony, cs);
-
-        // Allocate some plunder
-        if (plunder > 0) {
-            attackerPlayer.modifyGold(plunder);
-            colonyPlayer.modifyGold(-plunder);
-            cs.addPartial(See.only(attackerPlayer), attackerPlayer, "gold");
-            cs.addPartial(See.only(colonyPlayer), colonyPlayer, "gold");
-        }
-
-        // Remove goods party modifiers as they apply to a different monarch.
-        for (Modifier m : colony.getModifiers()) {
-            if (Specification.COLONY_GOODS_PARTY_SOURCE == m.getSource()) {
-                colony.removeModifier(m);
-            }
-        }
-
-        // The colony is falling, so allow other neighbours a chance
-        // to claim its tiles.  Make sure units are ejected when a tile
-        // is claimed.
-        Set<Tile> tiles = colony.getOwnedTiles();
-        tile.cacheUnseen();
-        tiles.remove(tile);
-        for (Tile t : tiles) {
-            t.cacheUnseen();
-            t.changeOwnership(null, null);//-til
-        }
-        reassignTiles(tiles, colonyPlayer, colony);//-til
-        for (Tile t : tiles) {
-            if (t.getOwningSettlement() != colony) {
-                ColonyTile ct = colony.getColonyTile(t);
-                colony.ejectUnits(ct, ct.getUnitList());
-            }
-        }
-
-        // Hand over the colony.  Inform former owner of loss of owned
-        // tiles, and process possible increase in line of sight.
-        // No need to display the colony tile or the attacker tile to
-        // the attacking player as the unit is yet to move
-        Set<Tile> explored = colony//-til
-            .csChangeOwner(attackerPlayer, cs);//-vis(attackerPlayer,colonyPlayer)
-        explored.addAll(tiles);
-        if (attacker.hasTile()) explored.remove(attacker.getTile());
-        cs.add(See.only(attackerPlayer), explored);
-        cs.add(See.perhaps().always(colonyPlayer).except(attackerPlayer),
-               tiles);
-
-        // Inform the former owner of loss of units, and add sound.
-        cs.addRemoves(See.only(colonyPlayer), null, units);
-        cs.addAttribute(See.only(attackerPlayer), "sound",
-                        "sound.event.captureColony");
-
-        // Ready to reset visibility
-        attackerPlayer.invalidateCanSeeTiles();//+vis(attackerPlayer)
-        colonyPlayer.invalidateCanSeeTiles();//+vis(colonyPlayer)
     }
 
     /**

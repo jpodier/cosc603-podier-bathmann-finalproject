@@ -25,8 +25,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 
 import net.sf.freecol.common.model.Ability;
+import net.sf.freecol.common.model.ColonyTile;
 import net.sf.freecol.common.model.Feature;
 import net.sf.freecol.common.model.FoundingFather;
 import net.sf.freecol.common.model.FreeColGameObject;
@@ -37,18 +40,23 @@ import net.sf.freecol.common.model.HistoryEvent;
 import net.sf.freecol.common.model.LastSale;
 import net.sf.freecol.common.model.Location;
 import net.sf.freecol.common.model.ModelMessage;
+import net.sf.freecol.common.model.ModelMessage.MessageType;
 import net.sf.freecol.common.model.Modifier;
 import net.sf.freecol.common.model.Ownable;
 import net.sf.freecol.common.model.Player;
+import net.sf.freecol.common.model.Specification;
 import net.sf.freecol.common.model.Stance;
 import net.sf.freecol.common.model.Settlement;
+import net.sf.freecol.common.model.StringTemplate;
 import net.sf.freecol.common.model.Tile;
 import net.sf.freecol.common.model.TradeRoute;
 import net.sf.freecol.common.model.Unit;
+import net.sf.freecol.common.model.UnitTypeChange.ChangeType;
 import net.sf.freecol.common.model.WorkLocation;
 import net.sf.freecol.common.networking.DOMMessage;
 import net.sf.freecol.common.networking.MultipleMessage;
 import net.sf.freecol.common.networking.SpySettlementMessage;
+import net.sf.freecol.server.model.ServerColony;
 import net.sf.freecol.server.model.ServerPlayer;
 
 import org.w3c.dom.Document;
@@ -1939,4 +1947,121 @@ public class ChangeSet {
         for (Change c : changes) sb.append(c).append("\n");
         return sb.toString();
     }
+
+	/**
+	 * Captures a colony.
+	 * @param attacker  The attacking <code>Unit</code>.
+	 * @param colony  The <code>ServerColony</code> to capture.
+	 * @param random  A pseudo-random number source.
+	 */
+	public void csCaptureColony(Unit attacker, ServerColony colony,
+			Random random) {
+		Game game = attacker.getGame();
+		ServerPlayer attackerPlayer = (ServerPlayer) attacker.getOwner();
+		StringTemplate attackerNation = attacker.getApparentOwnerName();
+		ServerPlayer colonyPlayer = (ServerPlayer) colony.getOwner();
+		StringTemplate colonyNation = colonyPlayer.getNationLabel();
+		Tile tile = colony.getTile();
+		List<Unit> units = new ArrayList<>();
+		units.addAll(colony.getUnitList());
+		units.addAll(tile.getUnitList());
+		int plunder = colony.getPlunder(attacker, random);
+		addHistory(
+				attackerPlayer,
+				new HistoryEvent(game.getTurn(),
+						HistoryEvent.HistoryEventType.CONQUER_COLONY,
+						attackerPlayer).addStringTemplate("%nation%",
+						colonyNation).addName("%colony%", colony.getName()));
+		addHistory(
+				colonyPlayer,
+				new HistoryEvent(game.getTurn(),
+						HistoryEvent.HistoryEventType.COLONY_CONQUERED,
+						attackerPlayer).addStringTemplate("%nation%",
+						attackerNation).addName("%colony%", colony.getName()));
+		addMessage(
+				See.only(attackerPlayer),
+				new ModelMessage(ModelMessage.MessageType.COMBAT_RESULT,
+						"combat.colonyCaptured.enemy", colony)
+						.addName("%colony%", colony.getName())
+						.addStringTemplate("%unit%", attacker.getLabel())
+						.addStringTemplate("%enemyNation%", colonyNation)
+						.addAmount("%amount%", plunder));
+		addMessage(
+				See.only(colonyPlayer),
+				new ModelMessage(ModelMessage.MessageType.COMBAT_RESULT,
+						"combat.colonyCaptured.ours", tile)
+						.addName("%colony%", colony.getName())
+						.addStringTemplate("%enemyUnit%", attacker.getLabel())
+						.addStringTemplate("%enemyNation%", attackerNation)
+						.addAmount("%amount%", plunder));
+		colonyPlayer.csLoseLocation(colony, this);
+		if (plunder > 0) {
+			attackerPlayer.modifyGold(plunder);
+			colonyPlayer.modifyGold(-plunder);
+			addPartial(See.only(attackerPlayer), attackerPlayer, "gold");
+			addPartial(See.only(colonyPlayer), colonyPlayer, "gold");
+		}
+		for (Modifier m : colony.getModifiers()) {
+			if (Specification.COLONY_GOODS_PARTY_SOURCE == m.getSource()) {
+				colony.removeModifier(m);
+			}
+		}
+		Set<Tile> tiles = colony.getOwnedTiles();
+		tile.cacheUnseen();
+		tiles.remove(tile);
+		for (Tile t : tiles) {
+			t.cacheUnseen();
+			t.changeOwnership(null, null);
+		}
+		ServerPlayer.reassignTiles(tiles, colonyPlayer, colony);
+		for (Tile t : tiles) {
+			if (t.getOwningSettlement() != colony) {
+				ColonyTile ct = colony.getColonyTile(t);
+				colony.ejectUnits(ct, ct.getUnitList());
+			}
+		}
+		Set<Tile> explored = colony.csChangeOwner(attackerPlayer, this);
+		explored.addAll(tiles);
+		if (attacker.hasTile())
+			explored.remove(attacker.getTile());
+		add(See.only(attackerPlayer), explored);
+		add(See.perhaps().always(colonyPlayer).except(attackerPlayer), tiles);
+		addRemoves(See.only(colonyPlayer), null, units);
+		addAttribute(See.only(attackerPlayer), "sound",
+				"sound.event.captureColony");
+		attackerPlayer.invalidateCanSeeTiles();
+		colonyPlayer.invalidateCanSeeTiles();
+	}
+
+	/**
+	 * Add a new convert to this colony.
+	 * @param brave  The convert <code>Unit</code>.
+	 * @param tile
+	 * @param serverColony
+	 */
+	public void csAddConvert(Unit brave, Tile tile, ServerColony serverColony) {
+		if (brave == null)
+			return;
+		ServerPlayer newOwner = (ServerPlayer) serverColony.getOwner();
+		ServerPlayer oldOwner = (ServerPlayer) brave.getOwner();
+		if (oldOwner.csChangeOwner(brave, newOwner, ChangeType.CONVERSION,
+				serverColony.getTile(), this)) {
+			brave.changeRole(serverColony.getSpecification().getDefaultRole(),
+					0);
+			brave.setMovesLeft(0);
+			brave.setState(Unit.UnitState.ACTIVE);
+			addDisappear(newOwner, tile, brave);
+			add(See.only(newOwner), serverColony.getTile());
+			StringTemplate nation = oldOwner.getNationLabel();
+			addMessage(
+					See.only(newOwner),
+					new ModelMessage(MessageType.UNIT_ADDED,
+							"model.colony.newConvert", brave)
+							.addStringTemplate("%nation%", nation).addName(
+									"%colony%", serverColony.getName()));
+			newOwner.invalidateCanSeeTiles();
+			ServerColony.logger.fine("Convert at " + serverColony.getName()
+					+ " for " + serverColony.getName());
+		}
+	}
 }
