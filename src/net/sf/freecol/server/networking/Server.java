@@ -51,7 +51,9 @@ import org.w3c.dom.Element;
  */
 public final class Server extends Thread {
 
-    private static final Logger logger = Logger.getLogger(Server.class.getName());
+	/** Logger for this class. */
+    private static final Logger logger =
+    		Logger.getLogger(Server.class.getName());
 
     /** Backlog for socket. */
     private static final int BACKLOG_DEFAULT = 10;
@@ -90,8 +92,8 @@ public final class Server extends Thread {
      * @param port The TCP port to use for the public socket.
      * @throws IOException if the public socket cannot be created.
      */
-    public Server(FreeColServer freeColServer, String host,
-                  int port) throws IOException {
+    public Server(final FreeColServer freeColServer, final String host,
+                  final int port) throws IOException {
         super(FreeCol.SERVER_THREAD + "Server");
 
         this.freeColServer = freeColServer;
@@ -128,7 +130,7 @@ public final class Server extends Thread {
      *               <code>Connection</code>
      * @return The <code>Connection</code>.
      */
-    public Connection getConnection(Socket socket) {
+    public Connection getConnection(final Socket socket) {
         return this.connections.get(socket);
     }
 
@@ -137,8 +139,10 @@ public final class Server extends Thread {
      *
      * @param connection The connection to add.
      */
-    public void addDummyConnection(Connection connection) {
-        if (!this.running) return;
+    public void addDummyConnection(final Connection connection) {
+        if (!this.running) {
+			return;
+		}
         this.connections.put(new Socket(), connection);
     }
 
@@ -147,8 +151,10 @@ public final class Server extends Thread {
      *
      * @param connection The connection to add.
      */
-    public void addConnection(Connection connection) {
-        if (!this.running) return;
+    public void addConnection(final Connection connection) {
+        if (!this.running) {
+			return;
+		}
         this.connections.put(connection.getSocket(), connection);
     }
 
@@ -157,7 +163,7 @@ public final class Server extends Thread {
      *
      * @param connection The connection that should be removed.
      */
-    public void removeConnection(Connection connection) {
+    public void removeConnection(final Connection connection) {
         this.connections.remove(connection.getSocket());
     }
 
@@ -166,7 +172,7 @@ public final class Server extends Thread {
      *
      * @param mh The <code>MessageHandler</code> to use.
      */
-    public void setMessageHandlerToAllConnections(MessageHandler mh) {
+    public void setMessageHandlerToAllConnections(final MessageHandler mh) {
         for (Connection c : this.connections.values()) {
             c.setMessageHandler(mh);
         }
@@ -179,10 +185,13 @@ public final class Server extends Thread {
      * @param exceptConnection An optional <code>Connection</code> not
      *     to send to.
      */
-    public void sendToAll(DOMMessage message, Connection exceptConnection) {
+    public void sendToAll(final DOMMessage message,
+    		final Connection exceptConnection) {
         Element element = message.toXMLElement();
         for (Connection c : new ArrayList<>(connections.values())) {
-            if (c == exceptConnection) continue;
+            if (c == exceptConnection) {
+				continue;
+			}
             if (c.isAlive()) {
                 try {
                     c.sendAndWait(element);
@@ -201,7 +210,7 @@ public final class Server extends Thread {
      *
      * @param message The <code>DOMMessage</code> to send.
      */
-    public void sendToAll(DOMMessage message) {
+    public void sendToAll(final DOMMessage message) {
         sendToAll(message, null);
     }
     
@@ -268,7 +277,9 @@ public final class Server extends Thread {
         }
 
         for (Connection c : this.connections.values()) {
-            if (c.isAlive()) c.close();
+            if (c.isAlive()) {
+				c.close();
+			}
         }
         this.connections.clear();
 
