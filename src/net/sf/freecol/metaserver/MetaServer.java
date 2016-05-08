@@ -182,8 +182,15 @@ public final class MetaServer extends Thread {
             logger.log(Level.WARNING, "Could not close the server socket!", e);
         }
 
-        Connection c;
-        while ((c = connections.remove(0)) != null) c.close();
+        // Close all connections and clear hashmap
+        Iterator<Connection> iterator = getConnectionIterator();
+        while(iterator.hasNext()){
+        	Connection c = iterator.next();
+        	if( c!= null)
+        		c.close();
+        }
+        connections.clear();
+        
         logger.info("Server shutdown.");
     }
 
