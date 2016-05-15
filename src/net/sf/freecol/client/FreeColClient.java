@@ -133,11 +133,6 @@ public final class FreeColClient {
     private final boolean headless;
 
 
-    public FreeColClient(final InputStream splashStream,
-                         final String fontName) {
-        this(splashStream, fontName, FreeCol.GUI_SCALE_DEFAULT, true);
-    }
-
     /**
      * Creates a new <code>FreeColClient</code>.  Creates the control
      * objects.
@@ -226,91 +221,6 @@ public final class FreeColClient {
         }
         actionManager = new ActionManager(this);
         actionManager.initializeActions(inGameController, connectController);
-    }
-
-    /**
-     * Starts the new <code>FreeColClient</code>, including the GUI.
-     *
-     * @param size An optional window size.
-     * @param userMsg An optional message key to be displayed early.
-     * @param sound True if sounds should be played
-     * @param showOpeningVideo Display the opening video.
-     * @param savedGame An optional saved game.
-     * @param spec If non-null, a <code>Specification</code> to use to start
-     *     a new game immediately.
-     */
-    public void startClient(final Dimension size,
-                            final String userMsg,
-                            final boolean sound,
-                            final boolean showOpeningVideo,
-                            final File savedGame,
-                            final Specification spec) {
-        if (headless && savedGame == null && spec == null) {
-            fatal(Messages.message("client.headlessRequires"));
-        }
-
-        // Load the client options, which handle reloading the
-        // resources specified in the active mods.
-        this.clientOptions = loadClientOptions(savedGame);
-        this.clientOptions.fixClientOptions();
-
-        // Reset the mod resources as a result of the client option update.
-        ResourceMapping modMappings = new ResourceMapping();
-        for (FreeColModFile f : this.clientOptions.getActiveMods()) {
-            modMappings.addAll(f.getResourceMapping());
-        }
-        ResourceManager.setModMapping(modMappings);
-        // Update the actions, resources may have changed.
-        if (this.actionManager != null) updateActions();
-
-        // Initialize Sound (depends on client options)
-        this.soundController = new SoundController(this, sound);
-
-        // Start the GUI (headless-safe)
-        gui.hideSplashScreen();
-        gui.startGUI(size);
-
-        // Now the GUI is going, either:
-        //   - load the saved game if one was supplied
-        //   - use the debug shortcut to immediately start a new game with
-        //     supplied specification
-        //   - display the opening video (which goes on to display the
-        //     main panel when it completes)
-        //   - display the main panel and let the user choose what to
-        //     do (which will often be to progress through the
-        //     NewPanel to a call to the connect controller to start a game)
-        if (savedGame != null) {
-            soundController.playSound("sound.intro.general");
-            SwingUtilities.invokeLater(() -> {
-                    if (!connectController.startSavedGame(savedGame, userMsg)) {
-                        gui.showMainPanel(userMsg);
-                    }
-                });
-        } else if (spec != null) { // Debug or fast start
-            soundController.playSound("sound.intro.general");
-            SwingUtilities.invokeLater(() -> {
-                    if (!connectController.startSinglePlayerGame(spec, true)) {
-                        gui.showMainPanel(userMsg);
-                    }
-                });
-        } else if (showOpeningVideo) {
-            SwingUtilities.invokeLater(() -> {
-                    gui.showOpeningVideo(userMsg);
-                });
-        } else {
-            soundController.playSound("sound.intro.general");
-            SwingUtilities.invokeLater(() -> {
-                    gui.showMainPanel(userMsg);
-                });
-        }
-
-        String quit = FreeCol.CLIENT_THREAD + "Quit Game";
-        Runtime.getRuntime().addShutdownHook(new Thread(quit) {
-                @Override
-                public void run() {
-                    getConnectController().quitGame(true);
-                }
-            });
     }
 
     /**

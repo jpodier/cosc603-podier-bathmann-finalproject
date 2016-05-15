@@ -48,20 +48,6 @@ public class FreeColMenuTest implements ActionListener, ItemListener {
     JScrollPane scrollPane;
     final String newline = "\n";
 
-    public JMenuBar createMenuBar() {
-        JMenuBar menuBar = null;
-
-        FreeColClient client = new FreeColClient(null, null);
-        client.startClient(null, null, true, true, null, null);
-
-        //Create the menu bar.
-        menuBar = new InGameMenuBar(client, null);
-        client.updateActions();
-        ((FreeColMenuBar)menuBar).update();
-
-        return menuBar;
-    }
-
     public Container createContentPane() {
         //Create the content-pane-to-be.
         JPanel contentPane = new JPanel(new BorderLayout());
