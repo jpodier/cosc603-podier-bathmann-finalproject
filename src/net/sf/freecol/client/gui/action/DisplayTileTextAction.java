@@ -40,7 +40,11 @@ public class DisplayTileTextAction extends SelectableAction {
 
     // FIXME: make ClientOptions use enum
     public static enum DisplayText {
-        EMPTY, NAMES, OWNERS, REGIONS
+        EMPTY, NAMES, OWNERS, REGIONS;
+
+        public String getKey() {
+            return getEnumKey(this);
+        }
     };
 
     private static final int[] accelerators = {
