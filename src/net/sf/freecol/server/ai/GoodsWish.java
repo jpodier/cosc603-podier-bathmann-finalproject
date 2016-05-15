@@ -39,7 +39,7 @@ import net.sf.freecol.common.util.LogBuilder;
 public class GoodsWish extends Wish {
 
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(GoodsWish.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(GoodsWish.class.getName());
 
     /** The type of goods required. */
     private GoodsType goodsType;
@@ -79,7 +79,7 @@ public class GoodsWish extends Wish {
         this(aiMain, getTagName() + ":" + aiMain.getNextId());
 
         if (destination == null) {
-            throw new NullPointerException("destination == null");
+        	throw new IllegalArgumentException("destination == null");
         }
 
         this.destination = destination;
