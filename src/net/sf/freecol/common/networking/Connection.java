@@ -49,6 +49,7 @@ import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
 
 
+// TODO: Auto-generated Javadoc
 /**
  * A network connection.
  * Responsible for both sending and receiving network messages.
@@ -59,22 +60,40 @@ import org.xml.sax.SAXException;
  */
 public class Connection implements Closeable {
 
+    /** The Constant logger. */
     private static final Logger logger = Logger.getLogger(Connection.class.getName());
 
+    /** The Constant END_OF_STREAM. */
     public static final byte END_OF_STREAM = '\n';
     
+    /** The Constant DISCONNECT_TAG. */
     public static final String DISCONNECT_TAG = "disconnect";
+    
+    /** The Constant NETWORK_REPLY_ID_TAG. */
     public static final String NETWORK_REPLY_ID_TAG = "networkReplyId";
+    
+    /** The Constant QUESTION_TAG. */
     public static final String QUESTION_TAG = "question";
+    
+    /** The Constant RECONNECT_TAG. */
     public static final String RECONNECT_TAG = "reconnect";
+    
+    /** The Constant REPLY_TAG. */
     public static final String REPLY_TAG = "reply";
+    
+    /** The Constant SEND_SUFFIX. */
     public static final String SEND_SUFFIX = "-send\n";
+    
+    /** The Constant REPLY_SUFFIX. */
     public static final String REPLY_SUFFIX = "-reply\n";
 
+    /** The Constant TIMEOUT. */
     private static final int TIMEOUT = 5000; // 5s
 
+    /** The in inputstream */
     private InputStream in;
 
+    /** The socket used for communication */
     private Socket socket;
 
     /** The output stream to write to. */
@@ -82,16 +101,23 @@ public class Connection implements Closeable {
     /** A lock to protect the output stream. */
     private Object outLock = new Object();
 
+    /** The xml transformer. */
     private final Transformer xmlTransformer;
 
+    /** The receiving thread. */
     private ReceivingThread receivingThread;
 
+    /** The message handler. */
     private MessageHandler messageHandler;
 
+    /** The name. */
     private String name;
 
+    /** The log result. */
     // Logging variables.
     private final StreamResult logResult;
+    
+    /** The log writer. */
     private final Writer logWriter;
 
 
@@ -138,7 +164,14 @@ public class Connection implements Closeable {
         this.messageHandler = messageHandler;
         this.name = name;
 
-        this.receivingThread.start();
+        
+    }
+    
+    /**
+     * Start running the receiving socket
+     */
+    public void start(){
+    	this.receivingThread.start();
     }
 
     /**
@@ -225,7 +258,7 @@ public class Connection implements Closeable {
     }
 
     /**
-     * Is this connection alive?
+     * Is this connection alive?.
      *
      * @return True if the connection is alive.
      */
@@ -314,7 +347,7 @@ public class Connection implements Closeable {
                 this.logWriter.write(REPLY_SUFFIX, 0, REPLY_SUFFIX.length());
             }
             this.xmlTransformer.transform(new DOMSource(element), this.logResult);
-            this.logWriter.write('\n');
+            this.logWriter.write(System.lineSeparator());
             this.logWriter.flush();
         } catch (IOException|TransformerException e) {
             ; // Ignore logging failure
@@ -350,8 +383,8 @@ public class Connection implements Closeable {
      *
      * @param element The question for the other peer.
      * @return The reply from the other peer.
-     * @exception IOException if an error occur while sending the message.
      * @see #sendInternal(Element)
+     * @exception IOException if an error occur while sending the message.
      */
     private Element askInternal(Element element) throws IOException {
         if (element == null) return null;
@@ -381,13 +414,34 @@ public class Connection implements Closeable {
     }
 
 
+    /**
+     * Send.
+     *
+     * @param message the message
+     * @throws IOException Signals that an I/O exception has occurred.
+     */
     // Wrappers, to be promoted soon
     public void send(DOMMessage message) throws IOException {
         send(message.toXMLElement());
     }
+    
+    /**
+     * Send and wait.
+     *
+     * @param message the message
+     * @throws IOException Signals that an I/O exception has occurred.
+     */
     public void sendAndWait(DOMMessage message) throws IOException {
         sendAndWait(message.toXMLElement());
     }
+    
+    /**
+     * Ask.
+     *
+     * @param message the message
+     * @return the element
+     * @throws IOException Signals that an I/O exception has occurred.
+     */
     public Element ask(DOMMessage message) throws IOException {
         return ask(message.toXMLElement());
     }
@@ -398,9 +452,9 @@ public class Connection implements Closeable {
      *
      * @param element The <code>Element</code> (root element in a
      *     DOM-parsed XML tree) that holds all the information
-     * @exception IOException If an error occur while sending the message.
      * @see #sendAndWait(Element)
      * @see #ask(Element)
+     * @exception IOException If an error occur while sending the message.
      */
     public void send(Element element) throws IOException {
         sendInternal(element);
@@ -413,9 +467,9 @@ public class Connection implements Closeable {
      *
      * @param element The element (root element in a DOM-parsed XML
      *     tree) that holds all the information
-     * @exception IOException If an error occur while sending the message.
      * @see #send(Element)
      * @see #ask(Element)
+     * @exception IOException If an error occur while sending the message.
      */
     public void sendAndWait(Element element) throws IOException {
         askInternal(element);
@@ -427,9 +481,9 @@ public class Connection implements Closeable {
      *
      * @param element The question for the peer.
      * @return The reply from the peer.
-     * @exception IOException if an error occur while sending the message.
      * @see #send(Element)
      * @see #sendAndWait(Element)
+     * @exception IOException if an error occur while sending the message.
      */
     public Element ask(Element element) throws IOException {
         Element reply = askInternal(element);

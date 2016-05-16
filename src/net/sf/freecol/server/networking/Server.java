@@ -248,6 +248,7 @@ public final class Server extends Thread {
                     Connection connection = new Connection(clientSocket,
                         this.freeColServer.getUserConnectionHandler(),
                         FreeCol.SERVER_THREAD);
+                    connection.start();
                     addConnection(connection);
                 } catch (IOException e) {
                     if (this.running) {
